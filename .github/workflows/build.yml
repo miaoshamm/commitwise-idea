@@ -40,7 +40,9 @@ jobs:
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
       - name: Build & Test
-        run: ./gradlew build test --no-daemon -PuseLocalIde=false --stacktrace
+        run: |
+          chmod +x gradlew
+          ./gradlew build test --no-daemon -PuseLocalIde=false --stacktrace
 
       - name: Upload plugin distribution
         uses: actions/upload-artifact@v4
