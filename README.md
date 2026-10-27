@@ -91,6 +91,39 @@ By default the build fetches the IntelliJ Platform distributable (~1 GB) from Je
 
 `DiffCollectorTest` actually runs `git init` in a temp directory; it self-skips when git is unavailable (JUnit `Assumptions`).
 
+## Releasing
+
+Two GitHub Actions workflows drive CI and releases:
+
+| Workflow | Trigger | Purpose |
+|----------|---------|---------|
+| `.github/workflows/build.yml` | push/PR to `main` | `buildPlugin` + unit tests; uploads the `.zip` artifact |
+| `.github/workflows/release.yml` | tag `v*` or manual dispatch | `verifyPlugin` + `publishPlugin` to JetBrains Marketplace + GitHub Release |
+
+### Required GitHub Secrets
+
+Configure under **Settings → Secrets and variables → Actions → New repository secret**:
+
+| Secret | Required | Description |
+|--------|----------|-------------|
+| `PUBLISH_TOKEN` | yes | JetBrains Marketplace Personal Access Token — generate at <https://plugins.jetbrains.com/author/me/tokens>. |
+| `CERTIFICATE_CHAIN` | yes | Base64-encoded PEM certificate chain — generate at Marketplace → your plugin → **Signing → Generate certificate chain**. |
+| `PRIVATE_KEY` | yes | Base64-encoded PEM private key matching the certificate chain (returned together with the chain). |
+| `PRIVATE_KEY_PASSWORD` | optional | Password for the private key, if you set one when generating the certificate. |
+
+> **Why signing is required.** Since the 2021.2 release cycle, JetBrains Marketplace rejects unsigned plugin uploads. The `signPlugin` task runs automatically before `publishPlugin` whenever `CERTIFICATE_CHAIN` + `PRIVATE_KEY` are present.
+
+### First-time publishing checklist
+
+1. **Upload the first version manually.** The Marketplace requires the very first version of a new plugin to be uploaded via the web UI — `publishPlugin` only works for plugins that already exist in the Marketplace. Build locally with `./gradlew buildPlugin`, sign it (`./gradlew signPlugin` if you have the env vars set, or use the Marketplace's web upload which signs server-side), then submit at <https://plugins.jetbrains.com> → **Add new plugin**. Approval is reviewed by JetBrains.
+2. **Generate the signing certificate** on the plugin's Marketplace page once it exists.
+3. **Add the four secrets** listed above to the GitHub repository.
+4. **Bump `pluginVersion`** in `gradle.properties` (or let the release workflow do it from the tag name), commit, and tag `git tag v0.5.1 && git push --tags`. The release workflow will build, verify, sign, publish, and create a GitHub Release with the `.zip` attached.
+
+### Manual dispatch
+
+`Actions → Release → Run workflow` lets you publish any SemVer string without creating a tag, with an option to skip the Plugin Verifier for a faster (but less safe) run.
+
 ## Code layout
 
 Mirrors the VSCode edition layer by layer; the domain layer has zero IDE dependencies and is fully unit-testable:

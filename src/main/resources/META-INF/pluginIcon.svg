@@ -1,22 +1,45 @@
 <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="cw-bg" x1="4" y1="4" x2="36" y2="36" gradientUnits="userSpaceOnUse">
-      <stop offset="0.12" stop-color="#6B57FF"/>
-      <stop offset="0.55" stop-color="#3C99CC"/>
-      <stop offset="0.92" stop-color="#3BEA62"/>
+    <linearGradient id="cw-bg" x1="2" y1="2" x2="38" y2="38" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#DDE3F8"/>
+      <stop offset="1" stop-color="#C8D2F0"/>
+    </linearGradient>
+    <linearGradient id="cw-git" x1="8" y1="22" x2="18" y2="32" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F5763D"/>
+      <stop offset="1" stop-color="#E44332"/>
     </linearGradient>
   </defs>
-  <rect x="3" y="3" width="34" height="34" rx="8" fill="url(#cw-bg)"/>
-  <path d="M13 9.5h9.5L27 14v16.5a1 1 0 0 1-1 1H13a1 1 0 0 1-1-1V10.5a1 1 0 0 1 1-1z" fill="#fff" fill-opacity="0.96"/>
-  <path d="M22.5 9.5V14h4.5" fill="#D7E3FF"/>
-  <rect x="14.5" y="17" width="9" height="1.6" rx="0.8" fill="#7A8AA8"/>
-  <rect x="14.5" y="20.5" width="9" height="1.6" rx="0.8" fill="#7A8AA8"/>
-  <rect x="14.5" y="24" width="6" height="1.6" rx="0.8" fill="#7A8AA8"/>
-  <g transform="translate(20 18.5)">
-    <rect x="9.4" y="1.6" width="7.2" height="7.2" rx="2" fill="#FF6B5A" transform="rotate(45 13 5.2)"/>
-    <circle cx="4" cy="4" r="1.9" fill="#fff"/>
-    <circle cx="4" cy="11" r="1.9" fill="#fff"/>
-    <path d="M4 6v3" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
-    <path d="M4 4c2.6 0 4.8 1.6 5.7 3.9" stroke="#fff" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+
+  <!-- 背景圆角方块 -->
+  <rect x="2" y="2" width="36" height="36" rx="10" fill="url(#cw-bg)"/>
+
+  <!-- 文档阴影 -->
+  <path d="M 12.8 8 H 23.8 L 28.8 13 V 30 a 2 2 0 0 1 -2 2 H 12.8 a 2 2 0 0 1 -2 -2 V 10 a 2 2 0 0 1 2 -2 Z" fill="#5B6BA8" opacity="0.18"/>
+
+  <!-- 文档主体 -->
+  <path d="M 12 7 H 23 L 28 12 V 29 a 2 2 0 0 1 -2 2 H 12 a 2 2 0 0 1 -2 -2 V 9 a 2 2 0 0 1 2 -2 Z" fill="#FFFFFF"/>
+
+  <!-- 折角 -->
+  <path d="M 23 7 V 12 H 28 Z" fill="#9BA9E8"/>
+
+  <!-- 三行文字胶囊 -->
+  <rect x="13" y="15" width="6" height="1.6" rx="0.8" fill="#AAB2D8"/>
+  <rect x="13" y="18.5" width="10" height="1.6" rx="0.8" fill="#AAB2D8"/>
+  <rect x="13" y="22" width="5" height="1.6" rx="0.8" fill="#AAB2D8"/>
+
+  <!-- Git 菱形徽章阴影 -->
+  <rect x="-5" y="-5" width="10" height="10" rx="2" fill="#5B6BA8" opacity="0.22" transform="translate(13.8 28) rotate(45)"/>
+
+  <!-- Git 菱形徽章 -->
+  <g transform="translate(13 27)">
+    <rect x="-5" y="-5" width="10" height="10" rx="2" fill="url(#cw-git)" transform="rotate(45)"/>
+    <!-- 主分支线（垂直） -->
+    <line x1="-1.5" y1="2" x2="-1.5" y2="-2" stroke="#FFFFFF" stroke-width="1" stroke-linecap="round"/>
+    <!-- 分支曲线（top -> bottom-right） -->
+    <path d="M -1.5 -2 Q 2 -2 2 2" stroke="#FFFFFF" stroke-width="1" stroke-linecap="round" fill="none"/>
+    <!-- 三个节点 -->
+    <circle cx="-1.5" cy="2" r="1" fill="#FFFFFF"/>
+    <circle cx="-1.5" cy="-2" r="1" fill="#FFFFFF"/>
+    <circle cx="2" cy="2" r="1" fill="#FFFFFF"/>
   </g>
 </svg>
