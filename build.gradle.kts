@@ -28,13 +28,6 @@ dependencies {
     testImplementation(kotlin("test"))
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)
-    // IntelliJ Platform SDK 自带的 testFramework.jar 会被 JUnit Platform 服务发现机制
-    // 自动加载其 JUnit5TestEnvironmentInitializer，初始化时需要 JUnit 4 的 TestRule 类。
-    // 本项目测试均为纯 Kotlin 单元测试（不依赖 IntelliJ 测试框架），但 testFramework.jar
-    // 仍会在 classpath 上（IntelliJ Platform SDK 的一部分），所以补一个 JUnit 4 运行时
-    // 依赖让它的 initializer 能成功完成，避免 NoClassDefFoundError: org/junit/rules/TestRule。
-    // 仅 testRuntimeOnly：编译期不引入 JUnit 4 API，不影响测试代码风格。
-    testRuntimeOnly(libs.junit4)
 }
 
 java {
@@ -104,6 +97,18 @@ tasks {
     }
     test {
         useJUnitPlatform()
+        // 排除 IntelliJ Platform 的测试框架 jar（testFramework.jar / test-framework-*.jar）。
+        // 它通过 META-INF/services 注册了 JUnit Platform 的 LauncherSessionListener
+        // （com.intellij.testFramework.junit5.impl.JUnit5TestEnvironmentInitializer），
+        // 被 ServiceLoader 自动加载后会调用 Logger.setFactory，而后者需要 JUnit 4 的
+        // org.junit.rules.TestRule。本项目 206 个测试全部是纯 Kotlin 单元测试（diff 解析、
+        // 脱敏、模板、SSE/NDJSON 解析、git 采集、配置校验），不启动 IDE 实例、不使用
+        // IntelliJ 测试框架，因此直接把该 jar 从测试 classpath 移除以避免
+        // NoClassDefFoundError: org/junit/rules/TestRule。
+        classpath = classpath.filter { file ->
+            !file.name.contains("testFramework", ignoreCase = true) &&
+                !file.name.contains("test-framework", ignoreCase = true)
+        }
         testLogging {
             events("passed", "failed", "skipped")
             showStandardStreams = false
