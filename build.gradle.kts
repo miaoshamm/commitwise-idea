@@ -35,6 +35,13 @@ dependencies {
     testImplementation(kotlin("test"))
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)
+    // IntelliJ Platform SDK 自带的 testFramework.jar 会被 JUnit Platform 服务发现机制
+    // 自动加载其 JUnit5TestEnvironmentInitializer，初始化时需要 JUnit 4 的 TestRule 类。
+    // 本项目测试均为纯 Kotlin 单元测试（不依赖 IntelliJ 测试框架），但 testFramework.jar
+    // 仍会在 classpath 上（IntelliJ Platform SDK 的一部分），所以补一个 JUnit 4 运行时
+    // 依赖让它的 initializer 能成功完成，避免 NoClassDefFoundError: org/junit/rules/TestRule。
+    // 仅 testRuntimeOnly：编译期不引入 JUnit 4 API，不影响测试代码风格。
+    testRuntimeOnly(libs.junit4)
 }
 
 java {
