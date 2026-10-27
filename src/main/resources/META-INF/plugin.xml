@@ -1,0 +1,121 @@
+<idea-plugin>
+    <id>com.commitwise.idea</id>
+    <name>CommitWise</name>
+    <vendor url="https://github.com/miaosha-ikio">miaosha-ikio</vendor>
+
+    <description><![CDATA[
+CommitWise reads the staged Git diff and writes a well-formed commit message with your own LLM, then reviews the change and marks issues on exact lines. Keys stay in the system credential store; nothing is ever committed automatically.
+<br/><br/>
+<b>Highlights</b>
+<ul>
+  <li>Generate Conventional Commits / Angular / Gitmoji / plain-text messages; the draft in the commit input box is backed up before writing and can be restored.</li>
+  <li>Review staged code across five dimensions (defect / security / performance / maintainability / test); issues are anchored to exact added lines with file-level fallback.</li>
+  <li>Editor squiggles plus Alt+Enter Quick Fix to apply a model suggestion (replace / insert below / cancel) with undo support.</li>
+  <li>OpenAI-compatible (DeepSeek / Qwen / Moonshot / GLM / self-hosted gateway), Anthropic, Azure OpenAI, and local Ollama adapters. Keys are stored in the IDE PasswordSafe, never in config files.</li>
+  <li>Secret-like values are redacted before sending; glob exclusion rules and per-file/total char budgets keep context size under control.</li>
+  <li>Commit message history (last 10, ring buffer), review report exportable to Markdown, status bar showing model and last review issue count.</li>
+</ul>
+<br/>
+The plugin is commit-dialog aware: it reads the checkbox-selected files in IDEA's Commit dialog (not only <code>git diff --cached</code>), so it works the way you actually commit in IDEA.
+]]></description>
+
+    <change-notes><![CDATA[
+<b>0.5.0</b><br/>
+Initial release on JetBrains Marketplace.<br/>
+<ul>
+  <li>Generate Conventional Commits / Angular / Gitmoji / plain-text messages from staged diff or Commit-dialog selected files</li>
+  <li>Five-dimension code review with line-level anchoring and Alt+Enter Quick Fix</li>
+  <li>OpenAI-compatible / Anthropic / Azure OpenAI / Ollama adapters, keys in PasswordSafe</li>
+  <li>Context budget control, glob exclusion, secret redaction</li>
+  <li>Commit message history, review report Markdown export, status bar widget</li>
+  <li>Pre-flight config check: missing model or key triggers guided setup instead of runtime error</li>
+  <li>206 unit tests covering diff parsing, redaction, templates, review parsing, SSE streaming, git collection, config validation</li>
+</ul>
+]]></change-notes>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.vcs</depends>
+    <depends>Git4Idea</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- 持久化服务 -->
+        <applicationService serviceImplementation="com.commitwise.idea.services.CommitWiseSettings"/>
+        <applicationService serviceImplementation="com.commitwise.idea.services.CommitHistoryService"/>
+        <applicationService serviceImplementation="com.commitwise.idea.infra.ai.ModelCache"/>
+        <projectService serviceImplementation="com.commitwise.idea.services.ReviewStore"/>
+
+        <!-- 设置页 -->
+        <applicationConfigurable parentId="tools" instance="com.commitwise.idea.ui.CommitWiseConfigurable"
+                                 id="commitwise.settings" displayName="CommitWise"/>
+
+        <!-- 工具窗口：审查问题 -->
+        <toolWindow id="CommitWise" anchor="right" factoryClass="com.commitwise.idea.ui.ReviewToolWindowFactory"
+                    icon="/icons/toolWindow.svg" canCloseContents="true"/>
+
+        <!-- 状态栏 -->
+        <statusBarWidgetFactory implementation="com.commitwise.idea.ui.CommitWiseStatusWidgetFactory"
+                                id="CommitWiseStatus"/>
+
+        <!-- 编辑器波浪线：审查问题 -->
+        <localInspection shortName="CommitWiseReview" displayName="CommitWise 审查问题"
+                         groupName="CommitWise" enabledByDefault="true" level="WARNING"
+                         implementationClass="com.commitwise.idea.inspection.CommitWiseReviewInspection"/>
+
+        <!-- 首次使用引导 -->
+        <postStartupActivity implementation="com.commitwise.idea.services.CommitWiseStartupActivity"/>
+
+        <!-- 通知 -->
+        <notificationGroup id="CommitWise" displayType="BALLOON"/>
+    </extensions>
+
+    <actions>
+        <!-- 提交工具窗口的提交信息工具栏：按钮平铺，不再收进下拉菜单 -->
+        <group id="CommitWise.CommitToolbar">
+            <add-to-group group-id="Vcs.MessageActionGroup" anchor="first"/>
+            <action id="CommitWise.GenerateCommit" class="com.commitwise.idea.actions.GenerateCommitAction"
+                    text="生成提交信息" description="读取暂存区 diff，用大模型生成规范 commit 信息"
+                    icon="/icons/generate.svg"/>
+            <action id="CommitWise.GenerateWithTemplate" class="com.commitwise.idea.actions.GenerateWithTemplateAction"
+                    text="选择模板生成…" description="用指定提示词模板生成提交信息"
+                    icon="/icons/template.svg"/>
+            <separator/>
+            <action id="CommitWise.ReviewStaged" class="com.commitwise.idea.actions.ReviewStagedAction"
+                    text="审查暂存区代码" description="对暂存区变更做代码审查，问题定位到行"
+                    icon="/icons/review.svg"/>
+        </group>
+
+        <!-- Tools 菜单：只保留高频入口，其余在设置页 / 审查工具窗口里 -->
+        <group id="CommitWise.ToolsMenu" text="CommitWise" popup="true" icon="/icons/toolWindow.svg">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <action id="CommitWise.Menu.GenerateCommit" class="com.commitwise.idea.actions.GenerateCommitAction"
+                    text="生成提交信息" icon="/icons/generate.svg"/>
+            <action id="CommitWise.Menu.ReviewStaged" class="com.commitwise.idea.actions.ReviewStagedAction"
+                    text="审查暂存区代码" icon="/icons/review.svg"/>
+            <action id="CommitWise.ShowReviewWindow" class="com.commitwise.idea.actions.ShowReviewWindowAction"
+                    text="打开审查问题窗口" icon="/icons/toolWindow.svg"/>
+            <separator/>
+            <action id="CommitWise.QuickSetup" class="com.commitwise.idea.actions.QuickSetupAction"
+                    text="快速配置模型" icon="/icons/setup.svg"/>
+            <action id="CommitWise.SelectModel" class="com.commitwise.idea.actions.SelectModelAction"
+                    text="选择模型…" icon="/icons/template.svg"/>
+            <action id="CommitWise.SetApiKey" class="com.commitwise.idea.actions.SetApiKeyAction"
+                    text="设置 API 密钥" icon="/icons/key.svg"/>
+            <separator/>
+            <action id="CommitWise.ShowHistory" class="com.commitwise.idea.actions.ShowHistoryAction"
+                    text="提交信息历史" icon="/icons/history.svg"/>
+            <action id="CommitWise.OpenSettings" class="com.commitwise.idea.actions.OpenSettingsAction"
+                    text="打开设置页面" icon="/icons/setup.svg"/>
+        </group>
+
+        <!-- 编辑器右键：就地应用审查建议 -->
+        <group id="CommitWise.EditorPopup" text="CommitWise" popup="true" icon="/icons/toolWindow.svg">
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+            <action id="CommitWise.Editor.ApplySuggestion"
+                    class="com.commitwise.idea.actions.ApplySuggestionAtCaretAction"
+                    text="应用审查建议（当前行）" icon="/icons/review.svg"/>
+            <action id="CommitWise.Editor.OpenReport"
+                    class="com.commitwise.idea.actions.ShowReviewReportAction"
+                    text="打开审查报告" icon="/icons/report.svg"/>
+        </group>
+    </actions>
+</idea-plugin>
