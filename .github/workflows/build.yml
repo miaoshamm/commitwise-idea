@@ -11,7 +11,8 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  # 需要 write 才能创建/更新 GitHub Release（滚动预发布）
+  contents: write
 
 concurrency:
   group: build-${{ github.ref }}
@@ -53,6 +54,45 @@ jobs:
           path: build/distributions/*.zip
           if-no-files-found: error
           retention-days: 14
+
+      # --- 自动发布到 GitHub Releases（仅 main 分支的 push，PR 不发布） ---
+      # 策略：固定 tag `latest` 做滚动预发布，每次 main 构建覆盖更新同一份 Release，
+      # 不会累积一堆历史 Release；标记 prerelease + make_latest=false，
+      # 因此正式版（v* tag 由 release.yml 创建）仍然占据 Releases 页的 "Latest" 标识。
+      - name: Read plugin version
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        id: meta
+        run: |
+          VERSION=$(grep '^pluginVersion=' gradle.properties | cut -d= -f2 | tr -d ' \r')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Plugin version: $VERSION"
+
+      - name: Publish rolling build to GitHub Releases
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Latest build (main)
+          body: |
+            Rolling pre-release, rebuilt automatically from the latest commit on `main`.
+
+            | | |
+            |---|---|
+            | Version | `${{ steps.meta.outputs.version }}` (from `gradle.properties`) |
+            | Commit | [`${{ github.sha }}`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}) |
+            | Build | [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |
+
+            ### Install
+            Download the `.zip` below, then in the IDE:
+            **Settings → Plugins → ⚙ → Install Plugin from Disk...**
+
+            > This is a development build from `main`, not a tagged release.
+            > For stable versions, use the `v*` tags or the JetBrains Marketplace listing.
+          files: build/distributions/*.zip
+          prerelease: true
+          make_latest: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload test reports
         if: always()

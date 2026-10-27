@@ -97,8 +97,14 @@ Two GitHub Actions workflows drive CI and releases:
 
 | Workflow | Trigger | Purpose |
 |----------|---------|---------|
-| `.github/workflows/build.yml` | push/PR to `main` | `buildPlugin` + unit tests; uploads the `.zip` artifact |
+| `.github/workflows/build.yml` | push/PR to `main` | `buildPlugin` + unit tests; uploads the `.zip` artifact, and on `main` publishes a **rolling pre-release** to GitHub Releases (tag `latest`) |
 | `.github/workflows/release.yml` | tag `v*` or manual dispatch | `verifyPlugin` + `publishPlugin` to JetBrains Marketplace + GitHub Release |
+
+### Rolling pre-release (`latest`)
+
+Every successful build on `main` updates a single pre-release named **Latest build (main)**, tagged `latest`, with the freshly built `.zip` attached. No tagging is needed — grab the newest build from the [Releases page](../../releases) any time.
+
+The rolling release is marked `prerelease` with `make_latest: false`, so it never takes the "Latest" badge away from versioned releases (`v*`). Pull requests only build and upload a short-lived artifact; they never publish.
 
 ### Required GitHub Secrets
 
