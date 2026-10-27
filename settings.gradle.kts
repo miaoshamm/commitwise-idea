@@ -1,3 +1,4 @@
+import org.gradle.api.initialization.resolve.RepositoriesMode
 import org.jetbrains.intellij.platform.gradle.extensions.intellijPlatform
 
 rootProject.name = "commitwise-idea"
@@ -18,6 +19,7 @@ plugins {
 }
 
 dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
         mavenCentral()
 

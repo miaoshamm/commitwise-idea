@@ -9,13 +9,6 @@ plugins {
 group = "com.commitwise"
 version = providers.gradleProperty("pluginVersion").get()
 
-repositories {
-    mavenCentral()
-    intellijPlatform {
-        defaultRepositories()
-    }
-}
-
 dependencies {
     intellijPlatform {
         // 发布构建用远程 IntelliJ Platform 分发包；本地开发若网络受限，
