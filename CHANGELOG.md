@@ -6,6 +6,13 @@
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-10-27
+
+### Changed
+- Release pipeline now assigns a fresh version number on every run: if the target
+  version already exists on the JetBrains Marketplace, the patch number is bumped
+  automatically instead of failing the upload.
+
 ## [0.5.0] - 2026-10-27
 
 ### Added

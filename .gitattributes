@@ -1,0 +1,5 @@
+# Shell scripts must keep LF endings, otherwise they fail on Linux CI runners
+# with "bad interpreter: /usr/bin/env bash^M".
+*.sh    text eol=lf
+gradlew text eol=lf
+*.bat   text eol=crlf

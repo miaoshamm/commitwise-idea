@@ -6,11 +6,11 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to publish (SemVer, e.g. 0.5.0)'
-        required: true
+        description: '版本号（SemVer，如 0.5.1）。留空则自动取 gradle.properties 并自动递增'
+        required: false
         type: string
       skip_verifier:
-        description: 'Skip Plugin Verifier (faster but less safe)'
+        description: '跳过 Plugin Verifier（更快，但少一层兼容性校验）'
         required: false
         default: false
         type: boolean
@@ -61,52 +61,101 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Ensure gradlew is executable
-        run: chmod +x gradlew
+        run: chmod +x gradlew scripts/*.sh
 
-      - name: Resolve version
-        id: version
+      # ---------- 版本号：候选 -> 自动递增到「线上未占用」 ----------
+      - name: Resolve requested version
+        id: requested
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
-          if [[ "${{ github.event_name }}" = "workflow_dispatch" ]]; then
-            VERSION="${{ github.event.inputs.version }}"
+          set -euo pipefail
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+            SOURCE="tag ${GITHUB_REF_NAME}"
+          elif [[ -n "${INPUT_VERSION}" ]]; then
+            VERSION="${INPUT_VERSION}"
+            SOURCE="workflow_dispatch 输入"
           else
-            # 从 tag 名 v0.5.0 提取 0.5.0
-            VERSION="${GITHUB_REF##*/v}"
+            VERSION="$(grep '^pluginVersion=' gradle.properties | cut -d= -f2 | tr -d ' \r')"
+            SOURCE="gradle.properties"
           fi
-          # 校验 SemVer
           if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$ ]]; then
             echo "::error::Invalid version format: '$VERSION' (expected SemVer like 0.5.0)"
             exit 1
           fi
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "is_prerelease=$([[ "$VERSION" == *-* ]] && echo true || echo false)" >> "$GITHUB_OUTPUT"
-          echo "Resolved plugin version: $VERSION (prerelease: $([[ "$VERSION" == *-* ]] && echo yes || echo no))"
+          echo "requested=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "source=$SOURCE" >> "$GITHUB_OUTPUT"
+          echo "候选版本：$VERSION（来源：$SOURCE）"
 
-      - name: Bump pluginVersion in gradle.properties
+      # Marketplace 同一版本号只能上传一次，重复上传会报
+      # "The com.commitwise.idea plugin already contains version x.y.z in channel"。
+      # 这里先查线上已发布版本，自动把候选版本递增到下一个空位。
+      - name: Auto-increment version if already published
+        id: version
+        env:
+          PLUGIN_XML_ID: com.commitwise.idea
+        run: |
+          set -euo pipefail
+          REQUESTED="${{ steps.requested.outputs.requested }}"
+          FINAL="$(bash scripts/plugin-version.sh next "$REQUESTED")"
+          if ! [[ "$FINAL" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Version resolution returned an invalid version: '$FINAL'"
+            exit 1
+          fi
+          echo "version=$FINAL" >> "$GITHUB_OUTPUT"
+          if [[ "$FINAL" != "$REQUESTED" ]]; then
+            echo "bumped=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::候选版本 ${REQUESTED} 在 Marketplace 上已存在，本次自动递增为 ${FINAL}"
+          else
+            echo "bumped=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "is_prerelease=$([[ "$FINAL" == *-* ]] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          echo "最终发布版本：$FINAL"
+          {
+            echo "### Plugin version"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Requested | \`$REQUESTED\` |"
+            echo "| Will publish | \`$FINAL\` |"
+            echo "| Auto-bumped | $([[ "$FINAL" != "$REQUESTED" ]] && echo yes || echo no) |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Apply version to gradle.properties
         run: |
           sed -i "s/^pluginVersion=.*/pluginVersion=${{ steps.version.outputs.version }}/" gradle.properties
-          echo "Updated gradle.properties:"
           grep '^pluginVersion' gradle.properties
 
       - name: Build distribution
         run: ./gradlew buildPlugin --no-daemon -PuseLocalIde=false --stacktrace
 
       - name: Verify plugin compatibility
-        if: ${{ github.event.inputs.skip_verifier != 'true' }}
+        if: ${{ inputs.skip_verifier != 'true' }}
         run: ./gradlew verifyPlugin --no-daemon -PuseLocalIde=false --stacktrace
 
+      # 兜底：即使线上版本列表查不到（插件未公开/接口异常），
+      # 上传时撞到版本冲突也会自动 +1 重试，不会让 workflow 直接挂掉。
       - name: Sign & Publish to JetBrains Marketplace
         id: publish
-        run: ./gradlew publishPlugin --no-daemon -PuseLocalIde=false --stacktrace
         env:
           PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
           CERTIFICATE_CHAIN: ${{ secrets.CERTIFICATE_CHAIN }}
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
           PRIVATE_KEY_PASSWORD: ${{ secrets.PRIVATE_KEY_PASSWORD }}
+          MAX_ATTEMPTS: '4'
+        run: bash scripts/publish-marketplace.sh
 
       - name: Locate distribution zip
         id: dist
+        env:
+          PUBLISHED_VERSION: ${{ steps.publish.outputs.version }}
         run: |
-          ZIP_PATH=$(ls build/distributions/*.zip 2>/dev/null | head -1)
+          set -euo pipefail
+          ZIP_PATH=$(ls "build/distributions/"*"${PUBLISHED_VERSION}"*.zip 2>/dev/null | head -1 || true)
+          if [[ -z "$ZIP_PATH" ]]; then
+            ZIP_PATH=$(ls -t build/distributions/*.zip 2>/dev/null | head -1 || true)
+          fi
           if [[ -z "$ZIP_PATH" ]]; then
             echo "::error::No plugin zip found in build/distributions/"
             exit 1
@@ -118,7 +167,7 @@ jobs:
       - name: Upload plugin artifact
         uses: actions/upload-artifact@v4
         with:
-          name: commitwise-idea-${{ steps.version.outputs.version }}
+          name: commitwise-idea-${{ steps.publish.outputs.version }}
           path: ${{ steps.dist.outputs.zip_path }}
           if-no-files-found: error
           retention-days: 30
@@ -128,11 +177,20 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: ${{ github.ref_name }}
+          name: CommitWise ${{ steps.publish.outputs.version }}
           body: |
-            ## CommitWise ${{ steps.version.outputs.version }}
+            ## CommitWise ${{ steps.publish.outputs.version }}
 
             IntelliJ IDEA plugin for AI-powered commit messages and code review.
+
+            | | |
+            |---|---|
+            | Published version | `${{ steps.publish.outputs.version }}` |
+            | Tag | `${{ github.ref_name }}` |
+            | Requested version | `${{ steps.requested.outputs.requested }}` |
+
+            > Version numbers are generated automatically: if the requested version is already
+            > taken on the JetBrains Marketplace, the patch number is bumped until a free slot is found.
 
             ### Install
             Download the `.zip` below and install via **IDE → Settings → Plugins → ⚙ → Install Plugin from Disk...**, or install directly from the [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/${{ vars.MARKETPLACE_PLUGIN_ID || 'com.commitwise.idea' }}).

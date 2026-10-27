@@ -98,7 +98,33 @@ Two GitHub Actions workflows drive CI and releases:
 | Workflow | Trigger | Purpose |
 |----------|---------|---------|
 | `.github/workflows/build.yml` | push/PR to `main` | `buildPlugin` + unit tests; uploads the `.zip` artifact, and on `main` publishes a **rolling pre-release** to GitHub Releases (tag `latest`) |
-| `.github/workflows/release.yml` | tag `v*` or manual dispatch | `verifyPlugin` + `publishPlugin` to JetBrains Marketplace + GitHub Release |
+| `.github/workflows/release.yml` | tag `v*` or manual dispatch | auto version bump + `verifyPlugin` + `publishPlugin` to JetBrains Marketplace + GitHub Release |
+
+### Version numbering (auto-increment)
+
+The Marketplace accepts each version number **exactly once**. Re-uploading an existing version fails with
+`The com.commitwise.idea plugin already contains version X.Y.Z in channel`, so the release workflow never trusts a
+hand-written version blindly:
+
+1. **Candidate version** — taken from the `vX.Y.Z` tag, the `workflow_dispatch` input, or `pluginVersion` in
+   `gradle.properties` (in that order).
+2. **Auto-bump** — `scripts/plugin-version.sh next <candidate>` queries
+   `plugins.jetbrains.com/api/.../updates` and bumps the patch number until it lands on a version that has never been
+   published. A candidate lower than the highest published version is also pushed to `highest + 1`.
+3. **Publish with retry** — `scripts/publish-marketplace.sh` runs `publishPlugin`; if the upload still collides with an
+   existing version (e.g. the plugin is not listed publicly yet, so the API cannot enumerate versions), it bumps the
+   patch number and retries, up to `MAX_ATTEMPTS` (default 4).
+
+So `v0.5.0` on a Marketplace that already holds `0.5.0` results in `0.5.1` being published, and the GitHub Release reports
+both the requested and the actually published version. No manual version edits are required between releases.
+
+You can run the same logic locally:
+
+```bash
+bash scripts/plugin-version.sh published        # 线上已发布版本
+bash scripts/plugin-version.sh next 0.5.0       # 下一个可用版本
+bash scripts/plugin-version.sh bump 0.5.0       # 纯 patch 自增
+```
 
 ### Rolling pre-release (`latest`)
 
@@ -124,11 +150,16 @@ Configure under **Settings → Secrets and variables → Actions → New reposit
 1. **Upload the first version manually.** The Marketplace requires the very first version of a new plugin to be uploaded via the web UI — `publishPlugin` only works for plugins that already exist in the Marketplace. Build locally with `./gradlew buildPlugin`, sign it (`./gradlew signPlugin` if you have the env vars set, or use the Marketplace's web upload which signs server-side), then submit at <https://plugins.jetbrains.com> → **Add new plugin**. Approval is reviewed by JetBrains.
 2. **Generate the signing certificate** on the plugin's Marketplace page once it exists.
 3. **Add the four secrets** listed above to the GitHub repository.
-4. **Bump `pluginVersion`** in `gradle.properties` (or let the release workflow do it from the tag name), commit, and tag `git tag v0.5.1 && git push --tags`. The release workflow will build, verify, sign, publish, and create a GitHub Release with the `.zip` attached.
+4. **Tag a release** with `git tag v0.5.1 && git push --tags`. The release workflow builds, verifies, signs, publishes and
+   creates a GitHub Release with the `.zip` attached. The version number is resolved automatically (see
+   [Version numbering](#version-numbering-auto-increment)), so `pluginVersion` in `gradle.properties` does not have to be
+   bumped by hand — it only acts as the default candidate when no tag/input is given.
 
 ### Manual dispatch
 
-`Actions → Release → Run workflow` lets you publish any SemVer string without creating a tag, with an option to skip the Plugin Verifier for a faster (but less safe) run.
+`Actions → Release → Run workflow` lets you publish without creating a tag. Leave the version field empty to use
+`pluginVersion` (auto-bumped if taken), or type an explicit SemVer string; there is also an option to skip the Plugin
+Verifier for a faster (but less safe) run.
 
 ## Code layout
 
