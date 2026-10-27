@@ -42,7 +42,9 @@ jobs:
       - name: Build & Test
         run: |
           chmod +x gradlew
-          ./gradlew build test --no-daemon -PuseLocalIde=false --stacktrace
+          # buildPlugin 生成 build/distributions/*.zip（插件分发包）；
+          # 单跑 `build` 只会编译+测试+打 jar，不会产出插件 ZIP。
+          ./gradlew buildPlugin test --no-daemon -PuseLocalIde=false --stacktrace
 
       - name: Upload plugin distribution
         uses: actions/upload-artifact@v4
