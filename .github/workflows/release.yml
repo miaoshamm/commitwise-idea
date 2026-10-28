@@ -51,6 +51,47 @@ jobs:
           fi
           echo "All required secrets are present."
 
+      # Secret 里既可以直接粘多行 PEM，也可以存 base64（更不容易在粘贴时被弄坏换行）。
+      # 这里统一解码成 PEM 写进 GITHUB_ENV，供 signPlugin / publishPlugin 读取。
+      - name: Prepare signing material
+        env:
+          CERTIFICATE_CHAIN: ${{ secrets.CERTIFICATE_CHAIN }}
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          decode_pem() {
+            local v="$1" decoded
+            if [[ "$v" == *"-----BEGIN"* ]]; then
+              printf '%s\n' "$v"
+              return 0
+            fi
+            decoded="$(printf '%s' "$v" | base64 -d 2>/dev/null || true)"
+            if [[ -n "$decoded" ]]; then
+              printf '%s\n' "$decoded"
+            else
+              printf '%s\n' "$v"
+            fi
+          }
+          CHAIN="$(decode_pem "$CERTIFICATE_CHAIN")"
+          KEY="$(decode_pem "$PRIVATE_KEY")"
+          if [[ "$CHAIN" != *"-----BEGIN CERTIFICATE"* ]]; then
+            echo "::error::CERTIFICATE_CHAIN 不像 PEM 证书链（未找到 '-----BEGIN CERTIFICATE'），请检查 Secret 内容"
+            exit 1
+          fi
+          if ! grep -qE -- "-----BEGIN .*PRIVATE KEY-----" <<<"$KEY"; then
+            echo "::error::PRIVATE_KEY 不像 PEM 私钥（未找到 '-----BEGIN ... PRIVATE KEY-----'），请检查 Secret 内容"
+            exit 1
+          fi
+          {
+            echo "CERTIFICATE_CHAIN<<SIGNING_ENV_EOF_7f3a"
+            printf '%s\n' "$CHAIN"
+            echo "SIGNING_ENV_EOF_7f3a"
+            echo "PRIVATE_KEY<<SIGNING_ENV_EOF_7f3a"
+            printf '%s\n' "$KEY"
+            echo "SIGNING_ENV_EOF_7f3a"
+          } >> "$GITHUB_ENV"
+          echo "签名材料已就绪（chain ${#CHAIN} 字符 / key ${#KEY} 字符）"
+
       - name: Setup JDK 21
         uses: actions/setup-java@v4
         with:
@@ -140,8 +181,6 @@ jobs:
         id: publish
         env:
           PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
-          CERTIFICATE_CHAIN: ${{ secrets.CERTIFICATE_CHAIN }}
-          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
           PRIVATE_KEY_PASSWORD: ${{ secrets.PRIVATE_KEY_PASSWORD }}
           MAX_ATTEMPTS: '4'
         run: bash scripts/publish-marketplace.sh

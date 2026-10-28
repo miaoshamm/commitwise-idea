@@ -139,8 +139,8 @@ Configure under **Settings → Secrets and variables → Actions → New reposit
 | Secret | Required | Description |
 |--------|----------|-------------|
 | `PUBLISH_TOKEN` | yes | JetBrains Marketplace Personal Access Token — generate at <https://plugins.jetbrains.com/author/me/tokens>. |
-| `CERTIFICATE_CHAIN` | yes | Base64-encoded PEM certificate chain — generate at Marketplace → your plugin → **Signing → Generate certificate chain**. |
-| `PRIVATE_KEY` | yes | Base64-encoded PEM private key matching the certificate chain (returned together with the chain). |
+| `CERTIFICATE_CHAIN` | yes | Certificate chain PEM — generate at Marketplace → your plugin → **Signing → Generate certificate chain**. Paste the PEM as-is (multi-line is fine) or its base64 encoding; the workflow accepts both. |
+| `PRIVATE_KEY` | yes | The private key returned together with the chain. Paste the PEM as-is or its base64 encoding. |
 | `PRIVATE_KEY_PASSWORD` | optional | Password for the private key, if you set one when generating the certificate. |
 
 > **Why signing is required.** Since the 2021.2 release cycle, JetBrains Marketplace rejects unsigned plugin uploads. The `signPlugin` task runs automatically before `publishPlugin` whenever `CERTIFICATE_CHAIN` + `PRIVATE_KEY` are present.
