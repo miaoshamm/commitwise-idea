@@ -4,3 +4,6 @@
 build
 *.iml
 local.properties
+
+# 插件签名私钥（本地备份，绝不入库）
+.signing
