@@ -2,6 +2,11 @@
 
 Read the Git changes you're about to commit, let your own LLM write a well-formed commit message, then review the code and mark issues on exact lines. Keys stay in the IDE PasswordSafe; nothing is ever committed automatically.
 
+[![JetBrains Marketplace](https://img.shields.io/jetbrains/plugin/v/35543?label=marketplace)](https://plugins.jetbrains.com/plugin/35543-commitwise)
+[![Downloads](https://img.shields.io/jetbrains/plugin/d/35543)](https://plugins.jetbrains.com/plugin/35543-commitwise)
+
+**Official site: <https://commitwise.aikio.blog/>**
+
 > Ported 1:1 from the VSCode edition of CommitWise (originally CommitCraft).
 
 ## Highlights
@@ -22,15 +27,15 @@ Read the Git changes you're about to commit, let your own LLM write a well-forme
 
 ## Install
 
-**From JetBrains Marketplace** (once published): `Settings → Plugins → Marketplace → search "CommitWise" → Install`.
-
-**From disk** (local build or GitHub release):
-
-```
-Settings → Plugins → ⚙ → Install Plugin from Disk… → select commitwise-idea-<version>.zip
-```
+| Channel | For | How |
+|---|---|---|
+| [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/35543-commitwise) | IntelliJ IDEA / WebStorm / PyCharm and other JetBrains IDEs | `Settings → Plugins → Marketplace`, search **CommitWise**, Install |
+| Offline `.zip` | Air-gapped machines, pinned versions | Download `commitwise-idea-<version>-signed.zip` from [Releases](https://github.com/miaoshamm/commitwise-idea/releases), then `Settings → Plugins → ⚙ → Install Plugin from Disk…` |
+| [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=miaosha-ikio.commitwise) / [Open VSX](https://open-vsx.org/extension/miaosha-ikio/commitwise) | VS Code, Cursor, VSCodium | Different edition — see [commitwise-vscode](https://github.com/miaoshamm/commitwise-vscode) |
 
 Requires IntelliJ IDEA 2024.3+ and the bundled Git integration (Git4Idea, enabled by default).
+
+Screenshots, configuration examples and FAQ live on the official site <https://commitwise.aikio.blog/>.
 
 ## Usage
 

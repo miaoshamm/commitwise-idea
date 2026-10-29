@@ -6,6 +6,19 @@
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-10-29
+
+### Changed
+- The plugin's vendor link now points at the official site <https://commitwise.aikio.blog/>
+  instead of a GitHub profile URL that no longer resolves (it returned 404 from the
+  Marketplace plugin page).
+- The Marketplace description ends with a link to the official site, so the plugin
+  page, the VSCode edition and the site itself all lead to the same place.
+- README gained the website entry, Marketplace version/download badges, and an
+  install table covering JetBrains Marketplace, the offline signed `.zip`, and the
+  VS Code / Open VSX editions. The old "once published" wording is gone — 0.5.1
+  shipped on 2026-10-27.
+
 ## [0.5.1] - 2026-10-27
 
 ### Changed

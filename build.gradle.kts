@@ -1,9 +1,69 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import java.io.File
 
 plugins {
     id("org.jetbrains.kotlin.jvm")
     id("org.jetbrains.intellij.platform")
+}
+
+/**
+ * 把 CHANGELOG.md 中某个版本的段落渲染成 plugin.xml `<change-notes>` 能显示的 HTML。
+ *
+ * 背景：IntelliJ Platform Gradle Plugin 2.x 不会自动读 CHANGELOG.md（本项目没有
+ * `patchChangelog` 任务，`buildPlugin` 也不依赖它），plugin.xml 里的 `<change-notes>`
+ * 一直是手写的静态文案 —— 结果是每个版本在 Marketplace 详情页上都显示同一段 0.5.0
+ * 「Initial release」。这里在配置期显式注入对应版本的段落，发版即带正确的更新说明。
+ *
+ * 找不到对应版本时返回空串，此时保留 plugin.xml 的静态内容作为兜底。
+ */
+fun changelogSectionHtml(changelog: File, version: String): String {
+    if (!changelog.exists()) return ""
+    val lines = changelog.readLines()
+    val header = Regex("""^##\s+\[?${Regex.escape(version)}\]?(\s|$)""")
+    val start = lines.indexOfFirst { header.containsMatchIn(it.trim()) }
+    if (start < 0) return ""
+
+    fun inline(text: String): String = text
+        .replace(Regex("""<((?:https?://)[^>\s]+)>""")) { m ->
+            """<a href="${m.groupValues[1]}">${m.groupValues[1]}</a>"""
+        }
+        .replace(Regex("""\[([^\]]+)\]\(([^)]+)\)""")) { m ->
+            """<a href="${m.groupValues[2]}">${m.groupValues[1]}</a>"""
+        }
+        .replace(Regex("""\*\*([^*]+)\*\*""")) { m -> "<b>${m.groupValues[1]}</b>" }
+        .replace(Regex("""`([^`]+)`""")) { m -> "<code>${m.groupValues[1]}</code>" }
+
+    val body = lines.drop(start + 1).takeWhile { !it.trimStart().startsWith("## ") }
+    val html = StringBuilder()
+    var inList = false
+    var itemOpen = false
+
+    // Markdown 里一个列表项经常折成多行，续行缩进后不以 "- " 开头，
+    // 必须并进上一个 <li>，否则会被误判为段落而把列表拆成多段 <ul>。
+    fun closeItem() { if (itemOpen) { html.append("</li>"); itemOpen = false } }
+    fun closeList() { closeItem(); if (inList) { html.append("</ul>"); inList = false } }
+
+    for (raw in body) {
+        val line = raw.trim()
+        when {
+            line.isEmpty() -> closeList()
+            line.startsWith("### ") -> {
+                closeList()
+                html.append("<br/><b>").append(inline(line.removePrefix("### ").trim())).append("</b><br/>")
+            }
+            line.startsWith("- ") || line.startsWith("* ") -> {
+                closeItem()
+                if (!inList) { html.append("<ul>"); inList = true }
+                itemOpen = true
+                html.append("<li>").append(inline(line.drop(2).trim()))
+            }
+            inList -> html.append(' ').append(inline(line))
+            else -> html.append(inline(line)).append("<br/>")
+        }
+    }
+    closeList()
+    return html.toString().trim()
 }
 
 group = "com.commitwise"
@@ -47,13 +107,20 @@ intellijPlatform {
         id = "com.commitwise.idea"
         name = "CommitWise"
         version = providers.gradleProperty("pluginVersion")
+        // 每个版本的更新说明取自 CHANGELOG.md 对应段落（见文件顶部 changelogSectionHtml）。
+        // 段落缺失时返回空串，patchPluginXml 会保留 plugin.xml 里的静态兜底文案。
+        changeNotes.set(providers.provider {
+            changelogSectionHtml(file("CHANGELOG.md"), version.get())
+        })
         ideaVersion {
             sinceBuild = providers.gradleProperty("pluginSinceBuild")
             untilBuild = providers.gradleProperty("pluginUntilBuild").orNull?.ifBlank { null }
         }
         vendor {
             name = "miaosha-ikio"
-            url = "https://github.com/miaosha-ikio"
+            // Marketplace 插件页的 vendor 链接。此前指向 github.com/miaosha-ikio（404），
+            // 统一改为官方站点；这里才是构建时的真相源 —— patchPluginXml 会用本段覆盖 plugin.xml。
+            url = "https://commitwise.aikio.blog/"
         }
     }
 

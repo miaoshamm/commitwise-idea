@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>com.commitwise.idea</id>
     <name>CommitWise</name>
-    <vendor url="https://github.com/miaosha-ikio">miaosha-ikio</vendor>
+    <vendor url="https://commitwise.aikio.blog/">miaosha-ikio</vendor>
 
     <description><![CDATA[
 CommitWise reads the staged Git diff and writes a well-formed commit message with your own LLM, then reviews the change and marks issues on exact lines. Keys stay in the system credential store; nothing is ever committed automatically.
@@ -17,6 +17,8 @@ CommitWise reads the staged Git diff and writes a well-formed commit message wit
 </ul>
 <br/>
 The plugin is commit-dialog aware: it reads the checkbox-selected files in IDEA's Commit dialog (not only <code>git diff --cached</code>), so it works the way you actually commit in IDEA.
+<br/><br/>
+Docs, screenshots and configuration examples: <a href="https://commitwise.aikio.blog/">commitwise.aikio.blog</a>
 ]]></description>
 
     <change-notes><![CDATA[
