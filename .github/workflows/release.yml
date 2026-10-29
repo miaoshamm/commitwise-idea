@@ -232,7 +232,10 @@ jobs:
             > taken on the JetBrains Marketplace, the patch number is bumped until a free slot is found.
 
             ### Install
-            Download the `.zip` below and install via **IDE → Settings → Plugins → ⚙ → Install Plugin from Disk...**, or install directly from the [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/${{ vars.MARKETPLACE_PLUGIN_ID || 'com.commitwise.idea' }}).
+            Download the `.zip` below and install via **IDE → Settings → Plugins → ⚙ → Install Plugin from Disk...**, or install directly from the [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/${{ vars.MARKETPLACE_PLUGIN_ID || '35543-commitwise' }}).
+
+            > The Marketplace page takes its numeric id plus slug (`35543-commitwise`). The plugin
+            > `id` from `plugin.xml` (`com.commitwise.idea`) is *not* a valid URL path — it 404s.
 
             See full changelog: [`CHANGELOG.md`](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md)
           generate_release_notes: true
